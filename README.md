@@ -1427,15 +1427,15 @@ keycloak_bootstrap_password_key: "bootstrap_password"
 
 Hier wordt ingesteld waar Vault bereikbaar is en op welke Vault-paden de nodige secrets staan.
 
-| Variabele                                | Betekenis                                                               |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
-| `vault_addr`                             | URL van de Vault-server.                                                |
-| `vault_token`                            | Wordt opgehaald uit de environment variable `VAULT_TOKEN`.              |
-| `vault_validate_certs`                   | Bepaalt of TLS-certificaten gevalideerd worden.                         |
-| `keycloak_admin_password_vault_path`     | Vault-pad waar het Keycloak admin wachtwoord staat of aangemaakt wordt. |
-| `keycloak_admin_password_key`            | Key-naam binnen het Vault secret voor het admin wachtwoord.             |
-| `keycloak_bootstrap_password_vault_path` | Vault-pad waar het bootstrap user wachtwoord staat of aangemaakt wordt. |
-| `keycloak_bootstrap_password_key`        | Key-naam binnen het Vault secret voor het bootstrap wachtwoord.         |
+| Variabele                                | Betekenis                                                                                |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `vault_addr`                             | URL van de Vault-server.                                                                 |
+| `vault_token`                            | Wordt opgehaald uit de environment variable `VAULT_TOKEN`.                               |
+| `vault_validate_certs`                   | Bepaalt of TLS-certificaten gevalideerd worden.                                          |
+| `keycloak_admin_password_vault_path`     | Vault-pad waar het Keycloak admin wachtwoord staat.                                      |
+| `keycloak_admin_password_key`            | Key-naam binnen het Vault secret voor het admin wachtwoord.                              |
+| `keycloak_bootstrap_password_vault_path` | Vault-pad waar het bootstrap user wachtwoord staat of automatisch aangemaakt kan worden. |
+| `keycloak_bootstrap_password_key`        | Key-naam binnen het Vault secret voor het bootstrap wachtwoord.                          |
 
 De gebruiker geeft hier dus per secret twee zaken mee:
 
@@ -1476,7 +1476,49 @@ Dit betekent dat het playbook controleert of op het Vault-pad `secret/data/test/
 
 Als deze key bestaat, wordt de bestaande waarde gebruikt. Als deze key niet bestaat, genereert het playbook een random wachtwoord en schrijft dit weg naar Vault onder die key-naam.
 
-Wanneer het playbook automatisch een secret heeft aangemaakt, kan de gebruiker deze waarde achteraf raadplegen via Vault of via de HashiCorp Vault Secret Lookup-integratie in AWX.
+### Nieuwe Vault-secret toevoegen
+
+Om een extra secret automatisch te laten controleren of aanmaken, moet in `roles/am_common/defaults/main.yml` een variabelenpaar toegevoegd worden. De naam vóór `_vault_path` en `_key` moet hetzelfde zijn.
+
+Voorbeeld:
+
+```yaml
+test_generated_secret_vault_path: "secret/data/test/generated-demo-secret"
+test_generated_secret_key: "demo_password"
+```
+
+In dit voorbeeld gebruikt het playbook:
+
+| Onderdeel    | Waarde                                   |
+| ------------ | ---------------------------------------- |
+| Vault-pad    | `secret/data/test/generated-demo-secret` |
+| Key-naam     | `demo_password`                          |
+| Ansible fact | `test_generated_secret`                  |
+
+Het playbook herkent automatisch variabelen die eindigen op `_vault_path` en zoekt daarbij naar een bijhorende variabele met dezelfde naam vóór `_key`.
+
+Voorbeeld:
+
+```text
+test_generated_secret_vault_path
+test_generated_secret_key
+```
+
+wordt gebruikt om de secretwaarde beschikbaar te maken als:
+
+```text
+test_generated_secret
+```
+
+Als het opgegeven Vault-pad of de opgegeven key nog niet bestaat, wordt de key automatisch aangemaakt met een random waarde. Als de key al bestaat, wordt de bestaande waarde gebruikt.
+
+### Raadplegen van automatisch aangemaakte secrets
+
+Wanneer het playbook automatisch een secret heeft aangemaakt, wordt de waarde niet weergegeven in de AWX job output. Dit voorkomt dat wachtwoorden of tokens zichtbaar worden in logs of job history.
+
+Als een gebruiker de gegenereerde secretwaarde nodig heeft, bijvoorbeeld voor een bootstrap-login, moet deze waarde gecontroleerd worden opgevraagd bij een bevoegde Vault-beheerder. De beheerder kan de waarde ophalen uit Vault volgens de afgesproken toegangsrechten.
+
+De HashiCorp Vault Secret Lookup-integratie in AWX kan gebruikt worden om te controleren of AWX toegang heeft tot het secret, maar deze test toont de secretwaarde zelf niet in de AWX-interface.
 
 De verdeling blijft hierdoor duidelijk:
 
